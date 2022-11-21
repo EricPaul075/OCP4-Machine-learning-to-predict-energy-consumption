@@ -53,6 +53,7 @@ from scipy.stats import f
 import seaborn as sns
 import re
 import sys
+import gc
 
 # Display options
 from IPython.display import (display, display_html, display_png, display_svg)
@@ -342,7 +343,8 @@ def append_model(model, suffix=''):
     name = model_name(model) + str(suffix)
     if name not in model_names:
         model_names.append(name)
-    return clone(model), name
+    return model, name
+    #return clone(model), name
 
 result_tables = {}
 def init_result_table():
@@ -473,9 +475,9 @@ def learning_graph(model, X, y, scoring='neg_mean_squared_error', cv=4, n_pts=20
     fig = plt.figure(figsize=(5*len(scorings), 4))
     for idx in range(len(scorings)):
         ax = fig.add_subplot(1, len(scorings), idx+1)
-        N, train_score, val_score, fit_times, score_times = learning_curve(clone(model), X, y, scoring=scorings[idx],
-                                                                           cv=cv,train_sizes=train_sizes, n_jobs=n_jobs,
-                                                                           random_state=random_state, return_times=True)
+        N, train_score, val_score, fit_times, score_times = learning_curve(
+            model, X, y, scoring=scorings[idx], cv=cv, train_sizes=train_sizes,
+            n_jobs=n_jobs, random_state=random_state, return_times=True)
 
         # Paramètres pour les courbes de train_score
         ts_mean = np.mean(train_score, axis=1)
@@ -534,7 +536,13 @@ def learning_graph(model, X, y, scoring='neg_mean_squared_error', cv=4, n_pts=20
     plt.suptitle("Courbes d'apprentissages selon différentes méthodes de scoring", fontsize=16)
     plt.tight_layout()
     plt.show()
-    #return (vs_mean, ts_mean-vs_mean, ts_std, rec, dN)
+
+    # Nettoyage
+    del train_sizes, N, train_score, val_score, fit_times, score_times
+    del ts_mean, ts_std, ts_min, ts_max
+    del vs_mean, vs_std, vs_min, vs_max
+    gc.collect()
+
     return dN
 
 def plot_estimator_coef(model, labels_X):
@@ -646,7 +654,7 @@ def get_param(param_grid, sort=True, x=None):
 # - param_grid: les paramètres d'entrainement de la grille ; compris entre 1 et 3 paramètres
 # - sort=True pour minimiser le nombre de graphiques
 # - x: permet de spécifier le paramètre pour l'axe des abscisses
-# - scale: spécifie l'échelle de l'axe des abcises
+# - scale: spécifie l'échelle de l'axe des abcisses
 def plt_grid(grid, param_grid, return_train_score=False, sort=True, x=None, scale='log'):
     df = pd.DataFrame(grid.cv_results_).copy()
     p = get_param(param_grid, sort=sort, x=x)
@@ -732,6 +740,10 @@ def plt_grid(grid, param_grid, return_train_score=False, sort=True, x=None, scal
         plt.suptitle(f"Scores (selon 'scoring') en fonctions des paramètres de la grille", fontsize=16)
         plt.tight_layout()
         plt.show()
+
+    # Nettoyage
+    del df, p, best_x, x, y
+    gc.collect()
 
 # Filtre les features dont l'importance est inférieure ou égale à une seuil
 def feature_filter(model, thres=0.1):
